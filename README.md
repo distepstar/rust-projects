@@ -6,7 +6,7 @@ This repository shows all the rust collections that I've been trying out recentl
 
 # Project list
 1. rust-chat-server
-    - A simple rust echo server that implemented "Tokio", an asyn runtime library to achieve shared state I/O chat.
+    - A simple rust echo server that implemented "Tokio", an async runtime library to achieve shared state I/O chat.
 
 # How to run the project?
 The basic instruction of running the rust projects is shown down below:
