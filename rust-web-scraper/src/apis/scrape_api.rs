@@ -2,7 +2,7 @@ use actix_web::{
     error::ResponseError,
     get,
     http::{header::ContentType, StatusCode},
-    post, put,
+    post, put, web,
     web::Data,
     web::Json,
     web::Path,
@@ -10,6 +10,7 @@ use actix_web::{
 };
 
 use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct TestingData {
     name: String,
@@ -22,8 +23,8 @@ struct SingleResponseTest {
     data: TestingData,
 }
 
-#[get("/scrape_api/get_scraped_data/")]
-pub async fn get_scraped_data() -> impl Responder {
+#[get("/get_scraped_data/")]
+async fn get_scraped_data() -> impl Responder {
     let data = TestingData {
         name: "Louis".to_string(),
         message: "Testing for scrape_api".to_string(),
@@ -35,4 +36,8 @@ pub async fn get_scraped_data() -> impl Responder {
     };
 
     HttpResponse::Ok().json(json_response)
+}
+
+pub fn route_scope() -> actix_web::Scope {
+    web::scope("/scrap_api").service(get_scraped_data)
 }

@@ -1,6 +1,7 @@
 // actix
 use actix_cors::Cors;
-use actix_web::{http, web, App, HttpServer};
+use actix_web::middleware::Logger;
+use actix_web::{http::header, web, App, HttpServer};
 // diesel
 #[macro_use]
 extern crate diesel;
@@ -14,7 +15,11 @@ extern crate dotenv;
 use dotenv::dotenv;
 
 // modules
-mod api;
+
+mod data_models;
+mod database;
+
+mod apis;
 mod redis;
 mod routes;
 
@@ -22,6 +27,11 @@ mod routes;
 async fn main() -> std::io::Result<()> {
     // dotenv
     dotenv().ok();
+    // env_logger
+    if std::env::var_os("RUST_LOG").is_none() {
+        std::env::set_var("RUST_LOG", "actix_web=info");
+    }
+    env_logger::init();
     // actix config
     let actix_host_dev: &str = dotenv!("ACTIX_HOST_DEV");
     let actix_port_dev: u16 = dotenv!("ACTIX_PORT_DEV").to_string().parse().unwrap();
@@ -31,7 +41,7 @@ async fn main() -> std::io::Result<()> {
     let manager = ConnectionManager::<SqliteConnection>::new(sqlite_spec);
     let pool = r2d2::Pool::builder()
         .build(manager)
-        .expectt("Failed to create pool.");
+        .expect("Failed to create pool.");
 
     // initialize app state
     let app_state = routes::AppState {
@@ -40,19 +50,30 @@ async fn main() -> std::io::Result<()> {
         app_port: actix_port_dev,
     };
 
+    // dummy database
+    let health_check_db = data_models::health_check_model::HealthCheckState::init();
+    let app_data = web::Data::new(health_check_db);
+
     // create new http actix server with 2 threads
     let app = HttpServer::new(move || {
         // cors config
         let cors = Cors::default()
             .allowed_origin(&format!("http://{}:{}/", actix_host_dev, actix_port_dev))
+            .allowed_origin(&format!("http://{}:{}/", actix_host_dev, actix_port_dev))
             .allowed_methods(vec!["GET", "POST"])
-            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+            .allowed_headers(vec![
+                header::CONTENT_TYPE,
+                header::AUTHORIZATION,
+                header::ACCEPT,
+            ])
             .max_age(3600);
 
         App::new()
             .wrap(cors)
+            .wrap(Logger::default())
             .app_data(web::Data::new(app_state.clone()))
-            .configure(api::config)
+            .app_data(app_data.clone())
+            .configure(apis::config)
             .service(routes::index)
     })
     .workers(2)
